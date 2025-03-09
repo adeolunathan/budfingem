@@ -33,19 +33,19 @@ class AuthController {
     try {
       // Get the user information from req.user (populated by authMiddleware)
       const user = req.user;
-      
+
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(401).json({ message: 'Unauthorized: User information not found in JWT' }); // Reverted to 401 - semantically more accurate
       }
-      
+
       // Return user profile information
       res.status(200).json({
         message: 'Profile retrieved successfully',
         user: {
-            userId: user.userId,
-            email: user.email,
-            username: user.username,
-            roles: user.roles,
+          userId: user.userId,
+          email: user.email,
+          username: user.username,
+          roles: user.roles,
         }
       });
     } catch (error: any) {
