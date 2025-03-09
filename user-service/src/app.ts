@@ -1,18 +1,23 @@
 // src/app.ts
-import express, { Application, Request, Response } from 'express';
-import authRoutes from './routes/auth.routes'; // Import auth routes
+import cors from 'cors'; // Import the cors middleware
+import express, { Request, Response } from 'express';
+import authRoutes from './routes/auth.routes';
+// ... other imports
 
-const app: Application = express();
+const app = express();
 
-// Middleware
-app.use(express.json()); // Parse JSON request bodies
+// Enable CORS for requests from your frontend origin (http://localhost:5173)
+app.use(cors({
+    origin: 'http://localhost:5173', //  VERY IMPORTANT: Replace with your frontend URL if different
+    credentials: true, // If you need to send cookies with CORS requests (not needed for JWT in headers here, but can be set to true)
+}));
 
-// Routes
-app.use('/auth', authRoutes); // <-- Make sure authRoutes is mounted under '/auth'
-
-// Default route for API health check
+app.use(express.json());
+// ... other middleware ...
+app.use('/auth', authRoutes);
+// ... routes ...
 app.get('/', (req: Request, res: Response) => {
-  res.status(200).send({ message: 'Budfin User Service is running' });
+    res.send({ message: 'Budfin User Service is running' });
 });
 
 export default app;
