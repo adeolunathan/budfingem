@@ -28,8 +28,21 @@ class AuthController {
         };
         this.profile = async (req, res) => {
             try {
-                // For now, just send a basic message. We will get user info from JWT later
-                res.status(200).json({ message: 'Protected profile endpoint accessed' });
+                // Get the user information from req.user (populated by authMiddleware)
+                const user = req.user;
+                if (!user) {
+                    return res.status(404).json({ message: 'User not found' });
+                }
+                // Return user profile information
+                res.status(200).json({
+                    message: 'Profile retrieved successfully',
+                    user: {
+                        userId: user.userId,
+                        email: user.email,
+                        username: user.username,
+                        roles: user.roles,
+                    }
+                });
             }
             catch (error) {
                 console.error('Error accessing profile:', error);
