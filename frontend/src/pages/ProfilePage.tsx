@@ -6,64 +6,51 @@ interface ProfileData {
   userId: string;
   username: string;
   email: string;
-  roles: string[];
+  roles?: string[]; // roles is now optional (using ?) and can be undefined or an array of strings
   // Add other profile fields if needed based on your backend response
 }
 
 const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProfile = async () => {
-      setLoading(true); // Start loading
+      setLoading(true);
       setError('');
-      const token = localStorage.getItem('budfin_jwt_token'); // Get JWT token from localStorage
+      const token = localStorage.getItem('budfin_jwt_token');
 
       if (!token) {
         setError('Unauthorized: No token found. Please login.');
         setLoading(false);
-        return; // Stop fetching if no token
+        return;
       }
 
       try {
         const profileData = await authApi.getProfile(token);
-        setProfile({
-          userId: profileData.user.id,
-          username: profileData.user.username,
-          email: profileData.user.email,
-          roles: profileData.user.roles,
-          // Map other fields if needed
-        }); // Map id to userId
-        setLoading(false); // Loading complete
-      } catch (err: unknown) {
+        setProfile(profileData.user);
+        setLoading(false);
+      } catch (err: any) {
         console.error('Error fetching profile:', err);
-        
-        // Type guard to safely access err.message
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Failed to fetch profile.');
-        }
-        
-        setLoading(false); // Loading complete (even with error)
+        setError(err.message || 'Failed to fetch profile.');
+        setLoading(false);
       }
     };
 
-    fetchProfile(); // Call fetchProfile on component mount
-  }, []); // Empty dependency array means useEffect runs only once on mount
+    fetchProfile();
+  }, []);
 
   if (loading) {
-    return <p>Loading profile...</p>; // Show loading message
+    return <p>Loading profile...</p>;
   }
 
   if (error) {
-    return <p style={{ color: 'red' }}>Error: {error}</p>; // Show error message
+    return <p style={{ color: 'red' }}>Error: {error}</p>;
   }
 
   if (!profile) {
-    return <p>Could not load profile information.</p>; // Fallback if profile is still null after fetching
+    return <p>Could not load profile information.</p>;
   }
 
   return (
@@ -72,7 +59,13 @@ const ProfilePage: React.FC = () => {
       <p><strong>User ID:</strong> {profile.userId}</p>
       <p><strong>Username:</strong> {profile.username}</p>
       <p><strong>Email:</strong> {profile.email}</p>
-      <p><strong>Roles:</strong> {profile.roles.join(', ')}</p> {/* Display roles as comma-separated string */}
+      <p>
+        <strong>Roles:</strong>{' '}
+        {/* Robustly handle roles being potentially undefined or not an array */}
+        {profile.roles && Array.isArray(profile.roles)
+          ? profile.roles.join(', ')
+          : 'Roles not available'}
+      </p>
       {/* Display other profile fields here */}
     </div>
   );
