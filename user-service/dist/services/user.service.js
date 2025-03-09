@@ -3,34 +3,40 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// src/services/user.service.ts
-const db_1 = __importDefault(require("../db")); // Import the database connection
+const db_1 = __importDefault(require("../db"));
+const bcrypt_1 = __importDefault(require("bcrypt"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const config_1 = __importDefault(require("../config/config"));
 class UserService {
     async createUser(userData) {
         console.log('UserService.createUser called with:', userData);
         if (!userData.username || !userData.email || !userData.password) {
             throw new Error('Username, email, and password are required');
         }
-        const { username, email, password } = userData; // Destructure user data
-        const passwordHash = 'dummy-hashed-password'; // Placeholder - replace with bcrypt hashing
+        const { username, email, password } = userData;
         try {
+            // 1. Generate a salt
+            const saltRounds = 10; // Recommended salt rounds for bcrypt
+            const salt = await bcrypt_1.default.genSalt(saltRounds);
+            // 2. Hash the password using the salt
+            const passwordHash = await bcrypt_1.default.hash(password, salt);
             const query = `
-        INSERT INTO users (username, email, password_hash)
-        VALUES ($1, $2, $3)
-        RETURNING id, username, email;
+        INSERT INTO users (username, email, password_hash, roles) -- Include roles in INSERT
+        VALUES ($1, $2, $3, $4)                             -- Add $4 placeholder for roles
+        RETURNING id, username, email, roles;               -- Return roles as well
       `;
-            const values = [username, email, passwordHash];
+            const values = [username, email, passwordHash, ['user']]; // Set default role as ["user"]
             const result = await db_1.default.query(query, values);
             if (result.rows.length > 0) {
-                return result.rows[0]; // Return the newly created user
+                return result.rows[0];
             }
             else {
-                throw new Error('Failed to create user in database'); // Should not usually happen, but handle case where no rows are returned
+                throw new Error('Failed to create user in database');
             }
         }
         catch (error) {
             console.error('Database error creating user:', error);
-            throw new Error(`Error creating user: ${error.message}`); // Re-throw with a more user-friendly message
+            throw new Error(`Error creating user: ${error.message}`);
         }
     }
     async loginUser(loginData) {
@@ -52,12 +58,22 @@ class UserService {
             }
             const user = result.rows[0];
             const passwordHashFromDB = user.password_hash;
-            // Password verification - Replace dummy check with bcrypt compare
-            if (password !== 'password123') { //  Dummy password check - REPLACE WITH BCRYPT COMPARE
-                throw new Error('Invalid credentials'); // Incorrect password
+            // 3. Compare the provided password with the stored password hash using bcrypt.compare()
+            const passwordMatch = await bcrypt_1.default.compare(password, passwordHashFromDB);
+            if (!passwordMatch) {
+                throw new Error('Invalid credentials'); // Passwords do not match
             }
-            const token = 'dummy-auth-token-' + Date.now(); // Dummy token - replace with JWT token generation
-            return token;
+            // JWT Generation:
+            const payload = {
+                userId: user.id,
+                email: user.email,
+                username: user.username,
+                roles: user.roles, // Include roles in the JWT payload
+            };
+            const token = jsonwebtoken_1.default.sign(payload, config_1.default.jwtSecret, {
+                expiresIn: '1h', // Token expiration time (e.g., 1 hour) - adjust as needed
+            });
+            return token; // Return the generated JWT
         }
         catch (error) {
             console.error('Database error during login:', error);

@@ -10,7 +10,7 @@ const app = (0, express_1.default)();
 // Middleware
 app.use(express_1.default.json()); // Parse JSON request bodies
 // Routes
-app.use('/auth', auth_routes_1.default); // Mount auth routes under /auth path
+app.use('/auth', auth_routes_1.default); // <-- Make sure authRoutes is mounted under '/auth'
 // Default route for API health check
 app.get('/', (req, res) => {
     res.status(200).send({ message: 'Budfin User Service is running' });

@@ -8,7 +8,7 @@ const app: Application = express();
 app.use(express.json()); // Parse JSON request bodies
 
 // Routes
-app.use('/auth', authRoutes); // Mount auth routes under /auth path
+app.use('/auth', authRoutes); // <-- Make sure authRoutes is mounted under '/auth'
 
 // Default route for API health check
 app.get('/', (req: Request, res: Response) => {

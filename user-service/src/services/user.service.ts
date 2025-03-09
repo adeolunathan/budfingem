@@ -1,11 +1,13 @@
-// src/services/user.service.ts
-import db from '../db'; // Import the database connection
-import { v4 as uuidv4 } from 'uuid'; // For generating UUIDs (if not using database default)
+import db from '../db';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import config from '../config/config';
 
 interface User {
   id: string;
   username: string;
   email: string;
+  roles: string[]; // Add roles property as an array of strings
 }
 
 class UserService {
@@ -15,26 +17,32 @@ class UserService {
       throw new Error('Username, email, and password are required');
     }
 
-    const { username, email, password } = userData; // Destructure user data
-    const passwordHash = 'dummy-hashed-password'; // Placeholder - replace with bcrypt hashing
+    const { username, email, password } = userData;
 
     try {
+      // 1. Generate a salt
+      const saltRounds = 10; // Recommended salt rounds for bcrypt
+      const salt = await bcrypt.genSalt(saltRounds);
+
+      // 2. Hash the password using the salt
+      const passwordHash = await bcrypt.hash(password, salt);
+
       const query = `
-        INSERT INTO users (username, email, password_hash)
-        VALUES ($1, $2, $3)
-        RETURNING id, username, email;
+        INSERT INTO users (username, email, password_hash, roles) -- Include roles in INSERT
+        VALUES ($1, $2, $3, $4)                             -- Add $4 placeholder for roles
+        RETURNING id, username, email, roles;               -- Return roles as well
       `;
-      const values = [username, email, passwordHash];
+      const values = [username, email, passwordHash, ['user']]; // Set default role as ["user"]
       const result = await db.query(query, values);
 
       if (result.rows.length > 0) {
-        return result.rows[0] as User; // Return the newly created user
+        return result.rows[0] as User;
       } else {
-        throw new Error('Failed to create user in database'); // Should not usually happen, but handle case where no rows are returned
+        throw new Error('Failed to create user in database');
       }
     } catch (error: any) {
       console.error('Database error creating user:', error);
-      throw new Error(`Error creating user: ${error.message}`); // Re-throw with a more user-friendly message
+      throw new Error(`Error creating user: ${error.message}`);
     }
   }
 
@@ -62,13 +70,26 @@ class UserService {
       const user = result.rows[0];
       const passwordHashFromDB = user.password_hash;
 
-      // Password verification - Replace dummy check with bcrypt compare
-      if (password !== 'password123') { //  Dummy password check - REPLACE WITH BCRYPT COMPARE
-        throw new Error('Invalid credentials'); // Incorrect password
+      // 3. Compare the provided password with the stored password hash using bcrypt.compare()
+      const passwordMatch = await bcrypt.compare(password, passwordHashFromDB);
+
+      if (!passwordMatch) {
+        throw new Error('Invalid credentials'); // Passwords do not match
       }
 
-      const token = 'dummy-auth-token-' + Date.now(); // Dummy token - replace with JWT token generation
-      return token;
+      // JWT Generation:
+      const payload = {
+        userId: user.id,
+        email: user.email,
+        username: user.username,
+        roles: user.roles, // Include roles in the JWT payload
+      };
+
+      const token = jwt.sign(payload, config.jwtSecret, { // Sign the JWT
+        expiresIn: '1h', // Token expiration time (e.g., 1 hour) - adjust as needed
+      });
+
+      return token; // Return the generated JWT
 
     } catch (error: any) {
       console.error('Database error during login:', error);
